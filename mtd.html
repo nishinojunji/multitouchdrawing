@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- スマホでの拡大・縮小やスクロールを防止 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>マルチタッチお絵かき</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* スクロール禁止 */
+      touch-action: none; /* ブラウザ標準のタッチジェスチャーを無効化 */
+      background-color: #f0f0f0;
+      font-family: sans-serif;
+    }
+    #toolbar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 8px;
+      border-radius: 8px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    canvas {
+      display: block;
+      background-color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toolbar">
+    <button id="clearBtn">全消去</button>
+  </div>
+
+  <canvas id="drawCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // 画面サイズに合わせてCanvasをリサイズ
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 指ごとに描画色を変えるためのカラーパレット
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22'];
+
+    // 現在画面に触れている各指（Touch）の直前の座標を保持するオブジェクト
+    // 例: { 識別ID: { x: 100, y: 200, color: '#e74c3c' } }
+    const activeTouches = {};
+
+    // タッチ開始
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // 画面のスクロール等を防止
+
+      // 画面に追加された新しいタッチポイントごとに処理
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        
+        // 指ごとに固有の色を割り当てる（IDに基づいて色を選択）
+        const color = colors[touch.identifier % colors.length];
+
+        // 直前の座標として保存
+        activeTouches[touch.identifier] = {
+          x: touch.clientX,
+          y: touch.clientY,
+          color: color
+        };
+      }
+    }, { passive: false });
+
+    // タッチ移動（線を引く）
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+
+      // 移動したタッチポイントごとに線を描画
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const prevTouch = activeTouches[touch.identifier];
+
+        if (prevTouch) {
+          // 描画設定
+          ctx.beginPath();
+          ctx.lineWidth = 6;            // 線の太さ
+          ctx.lineCap = 'round';        // 線の端を丸くする
+          ctx.lineJoin = 'round';       // 線の結合部を丸くする
+          ctx.strokeStyle = prevTouch.color; // この指に割り当てられた色
+
+          // 直前の位置から現在の位置まで線を引く
+          ctx.moveTo(prevTouch.x, prevTouch.y);
+          ctx.lineTo(touch.clientX, touch.clientY);
+          ctx.stroke();
+
+          // 座標情報を更新
+          prevTouch.x = touch.clientX;
+          prevTouch.y = touch.clientY;
+        }
+      }
+    }, { passive: false });
+
+    // タッチ終了（指が離れたとき）
+    function handleTouchEnd(e) {
+      e.preventDefault();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        // 離れた指の情報を削除
+        delete activeTouches[touch.identifier];
+      }
+    }
+
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    // 画面クリア機能
+    clearBtn.addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+  </script>
+</body>
+</html>
